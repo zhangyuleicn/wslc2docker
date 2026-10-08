@@ -15,32 +15,36 @@
 
 下面是一份**完整的端到端部署流程**：从准备 WSLC 环境、编译二进制、部署到 systemd、再到把 1Panel / Portainer 接上来。每一步都可照抄。
 
-### 0.0 一键自动安装（推荐）
+### 0.0 安装（推荐：一行命令，从 GitHub 直装）
 
-不想手动敲命令？用仓库自带安装器，一条命令搞定：
-
-**方式 A — Windows 侧一键（推荐）**：在 PowerShell 里运行 `install.ps1`，它会自动选默认 WSL 发行版、以 root 进 WSL 跑 `install.sh` 完成编译/部署/systemd 启动。
-
-```powershell
-# 已发布到 GitHub Releases 时（默认从 release 下载预编译包）
-.\install.ps1
-
-# 指定发行版
-.\install.ps1 -Distro Ubuntu
-
-# 尚未发布、本地直接测：用当前目录里的二进制/配置/脚本（免联网）
-.\install.ps1 -LocalDir .
-```
-
-**方式 B — WSL 内手动跑**：把仓库拷进 WSL 后，
+和 1Panel 一样的体验——**进 WSL 后一行命令，自动下载最新 Release 并安装**，无需手动下载、无需参数、无需 PowerShell：
 
 ```bash
-sudo bash install.sh
+# 进入 WSL（Windows 终端直接敲 wsl，或打开你的发行版）
+wsl
+
+# 一行搞定：下载 quick_start.sh 并自动安装（脚本内部会按需 sudo 提权）
+bash -c "$(curl -sSL https://raw.githubusercontent.com/zhangyuleicn/wslc2docker/main/quick_start.sh)"
 ```
 
-安装器会自动处理：二进制下载/部署、`/etc/wslc2docker`（0600）、systemd 单元启用启动；若 WSL 未开 systemd 则降级为 nohup 后台 + 登录钩子（并提示如何开启 systemd）。
+> 从 Windows 侧一键拉起 WSL 执行（PowerShell / cmd 里）：
+> ```powershell
+> wsl -e bash -c "bash -c \"\$(curl -sSL https://raw.githubusercontent.com/zhangyuleicn/wslc2docker/main/quick_start.sh)\""
+> ```
+> 注意外层必须用 `wsl -e bash -c "..."` 包一层，避免 PowerShell 抢先展开 `$(...)`。
 
-> **发布预编译包**（让方式 A 默认路径可用）：给仓库打 `v*` tag 推送即触发 `.github/workflows/release.yml`，自动构建 linux/amd64 并上传 `wslc2docker-v<version>-linux-amd64.tar.gz`（含二进制 + endpoints.yaml + service + install.sh）。把 `install.sh` / `install.ps1` 顶部的 `REPO` 改成你的 `owner/name` 即可。
+脚本会：查询 GitHub 最新 Release → 下载 `wslc2docker-v<版本>-linux-amd64.tar.gz` → 解包 → 拉取仓库最新 `install.sh` → 提权运行安装。安装过程自动完成：部署二进制到 `/usr/local/bin`、写 `/etc/wslc2docker`（0600）、安装 systemd 单元并启用启动；若 WSL 未开 systemd 则降级为 nohup 后台 + 登录钩子，并提示如何开启 systemd。
+
+**可覆盖的环境变量**（需要时加在命令前）：
+- `WSLC2DOCKER_VERSION=v0.1.1` —— 装指定版本（默认取最新 Release）
+- `WSLC2DOCKER_REPO=owner/name` —— 装其他 fork
+
+**备选 — 本地仓库直接装（零下载）**：如果你已经把仓库 clone / 拷到了 WSL 里，直接 `sudo bash install.sh` 即可，`install.sh` 会默认使用**自己所在目录**里的 `wslc2docker` / `endpoints.yaml` / `wslc2docker.service`，无需联网。
+
+**可选 — Windows 侧 `install.ps1`**：PowerShell 里 `.\install.ps1 -LocalDir .` 也能自动进 WSL 安装。
+> 注意：在中文版 Windows 上 PowerShell 对 `.ps1` 的编码/执行策略较敏感（需 `-ExecutionPolicy Bypass`，发行版名解析偶发乱码），**不如上面的 WSL 一行命令省心**，故推荐优先用上面的方式。
+
+> **发布预编译包**（让一行安装命令可用）：给仓库打 `v*` tag 推送即触发 `.github/workflows/release.yml`，自动构建 linux/amd64 并上传 `wslc2docker-v<version>-linux-amd64.tar.gz`（含二进制 + endpoints.yaml + service + install.sh + quick_start.sh）。
 
 ### 0.1 前提条件
 

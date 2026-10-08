@@ -1,8 +1,8 @@
 name: release
 
 # 打 tag v* 时构建 linux/amd64 静态二进制，并打包 tarball 上传到 GitHub Release。
-# install.sh / install.ps1 默认下载此 tarball：
-#   wslc2docker-v<version>-linux-amd64.tar.gz  (含 wslc2docker, endpoints.yaml, wslc2docker.service)
+# quick_start.sh 默认下载此 tarball：
+#   wslc2docker-v<version>-linux-amd64.tar.gz  (含 wslc2docker, endpoints.yaml, wslc2docker.service, install.sh, quick_start.sh)
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       - name: Package tarball
         run: |
           tar -czf "wslc2docker-v${VERSION}-linux-amd64.tar.gz" \
-            wslc2docker endpoints.yaml wslc2docker.service install.sh
+            wslc2docker endpoints.yaml wslc2docker.service install.sh quick_start.sh
           ls -lh "wslc2docker-v${VERSION}-linux-amd64.tar.gz"
 
       - name: Upload to Release

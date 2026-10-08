@@ -16,21 +16,26 @@ $ErrorActionPreference = "Stop"
 
 # Pick a distro
 if (-not $Distro) {
-  $running = wsl -l --running
-  foreach ($line in $running) {
-    $s = $line.Trim()
-    if (($s.Length -gt 0) -and ($s -notlike "NAME*")) {
-      $Distro = $s.Split(" ")[0]
-      break
+  # Primary: read registered distros from registry (no console-encoding issues)
+  try {
+    $lxss = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss"
+    $keys = Get-ChildItem $lxss -ErrorAction SilentlyContinue
+    foreach ($k in $keys) {
+      $nm = (Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue).DistributionName
+      if ($nm -and $nm.Trim().Length -gt 0) { $Distro = $nm.Trim(); break }
     }
-  }
+  } catch { }
 }
 if (-not $Distro) {
-  $def = wsl --list --quiet
-  if ($def) {
-    $Distro = $def[0].Trim()
-    $Distro = $Distro -replace "[^A-Za-z0-9-]", ""
-  }
+  # Fallback: wsl --list --quiet, force UTF-8 output and keep printable ASCII only
+  try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $list = wsl --list --quiet
+    foreach ($line in $list) {
+      $s = $line.Trim() -replace "[^ -~]", ""
+      if ($s.Length -gt 0) { $Distro = $s; break }
+    }
+  } catch { }
 }
 if (-not $Distro) {
   Write-Error "Cannot determine WSL distro. Use -Distro (e.g. -Distro Ubuntu)"
@@ -38,6 +43,9 @@ if (-not $Distro) {
 }
 
 Write-Host "==> Target WSL distro: $Distro"
+
+# Ensure the distro is running, otherwise the \\wsl$ share is unreachable for local copy.
+try { wsl.exe -d $Distro -- echo ok | Out-Null } catch { }
 
 if ($LocalDir) {
   $abs = (Resolve-Path $LocalDir).Path

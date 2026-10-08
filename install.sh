@@ -22,6 +22,15 @@ VERSION="${WSLC2DOCKER_VERSION:-0.1.0}"
 LOCAL_TARBALL="${WSLC2DOCKER_LOCAL_TARBALL:-}"
 LOCAL_DIR="${WSLC2DOCKER_LOCAL_DIR:-}"
 
+# 未显式指定本地源时，默认用本脚本所在目录（直接 sudo bash install.sh 即可，无需下载）
+if [ -z "$LOCAL_TARBALL" ] && [ -z "$LOCAL_DIR" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+  if [ -f "$SCRIPT_DIR/wslc2docker" ] && [ -f "$SCRIPT_DIR/endpoints.yaml" ] && [ -f "$SCRIPT_DIR/wslc2docker.service" ]; then
+    LOCAL_DIR="$SCRIPT_DIR"
+    echo "==> 未指定本地源，自动使用脚本所在目录：$LOCAL_DIR"
+  fi
+fi
+
 # ---- 目标路径（与 design.md / README 一致）----
 BIN="/usr/local/bin/wslc2docker"
 CFG_DIR="/etc/wslc2docker"
