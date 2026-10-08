@@ -1,0 +1,805 @@
+# wslc2docker — 端点配置（唯一机器真相源）
+#
+# 每个 Docker Engine API 端点的「开/关」（enabled）、wslc 对接接口、面板调用、
+# 对接方式、微软计划、开发计划都在这里。停止/启用的端点返回 501 Not Implemented。
+# 改完此文件后 `sudo systemctl reload wslc2docker`（SIGCHUP）即时生效。
+
+socket: /var/run/docker.sock
+tcp: ""                       # 可选，仅本机调试用：127.0.0.1:2375（禁止 0.0.0.0 裸暴露）
+wslc_binary: wslc.exe
+backend: wslc                 # wslc | fake（fake 用于无 WSLC 环境自测/演示）
+log_level: info
+
+endpoints:
+  - id: 1
+    resource: 系统
+    method: GET
+    path: /_ping
+    wslc: 无需（恒 OK）
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P0
+    enabled: true
+    note: ""
+  - id: 2
+    resource: 系统
+    method: HEAD
+    path: /_ping
+    wslc: 无需（恒 OK）
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P0
+    enabled: true
+    note: ""
+  - id: 3
+    resource: 系统
+    method: GET
+    path: /version
+    wslc: wslc version
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P0
+    enabled: true
+    note: 取 wslc 版本号填入 Moby Version 结构
+  - id: 4
+    resource: 系统
+    method: GET
+    path: /info
+    wslc: wslc system info
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: 聚合各 noun 计数合成 Info
+  - id: 5
+    resource: 系统
+    method: GET
+    path: /events
+    wslc: wslc events
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: ""
+  - id: 6
+    resource: 系统
+    method: GET
+    path: /system/df
+    wslc: "❌无（wslc2docker 合成）"
+    panel: 核心
+    bridge: 合成
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: wslc2docker 自研聚合各 noun list 计算
+  - id: 7
+    resource: 系统
+    method: POST
+    path: /system/prune
+    wslc: "❌无整体（仅 per-noun）"
+    panel: 常用
+    bridge: 模拟
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: false
+    note: 聚合 containers/images/networks/volumes prune
+  - id: 8
+    resource: 系统
+    method: POST
+    path: /auth
+    wslc: wslc login
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: ""
+  - id: 9
+    resource: 容器
+    method: GET
+    path: /containers/json
+    wslc: wslc container list --format json
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: 解析 json 输出
+  - id: 10
+    resource: 容器
+    method: POST
+    path: /containers/create
+    wslc: wslc container create / wslc run
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: create body → wslc run flags 逐项映射
+  - id: 11
+    resource: 容器
+    method: GET
+    path: /containers/{id}/json
+    wslc: wslc inspect -t container
+    panel: 详情
+    bridge: 翻译+重塑
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: inspect 仅 -t/--type；按 Moby 结构体重塑
+  - id: 12
+    resource: 容器
+    method: GET
+    path: /containers/{id}/top
+    wslc: "❌无（wslc 无 top）"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: 面板「进程」按钮禁用
+  - id: 13
+    resource: 容器
+    method: GET
+    path: /containers/{id}/logs
+    wslc: wslc logs
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: -n/--since/--until/-f
+  - id: 14
+    resource: 容器
+    method: GET
+    path: /containers/{id}/changes
+    wslc: "❌无（wslc 无 diff）"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 diff
+  - id: 15
+    resource: 容器
+    method: GET
+    path: /containers/{id}/export
+    wslc: wslc container export
+    panel: 否
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: tar
+  - id: 16
+    resource: 容器
+    method: GET
+    path: /containers/{id}/stats
+    wslc: wslc stats
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: 不流式；面板实时图降级为轮询
+  - id: 17
+    resource: 容器
+    method: POST
+    path: /containers/{id}/resize
+    wslc: wslc attach/exec tty
+    panel: 否
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: attach/exec 内部用（接受并返回 204）
+  - id: 18
+    resource: 容器
+    method: POST
+    path: /containers/{id}/start
+    wslc: wslc container start
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: ""
+  - id: 19
+    resource: 容器
+    method: POST
+    path: /containers/{id}/stop
+    wslc: wslc container stop
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: 超时默认 5s
+  - id: 20
+    resource: 容器
+    method: POST
+    path: /containers/{id}/restart
+    wslc: "❌无（wslc 无 restart）"
+    panel: 核心
+    bridge: 模拟
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: wslc2docker 用 stop+start 模拟
+  - id: 21
+    resource: 容器
+    method: POST
+    path: /containers/{id}/kill
+    wslc: wslc kill
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: ""
+  - id: 22
+    resource: 容器
+    method: POST
+    path: /containers/{id}/update
+    wslc: "❌无（wslc 无 update）"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 update(资源限制)
+  - id: 23
+    resource: 容器
+    method: POST
+    path: /containers/{id}/rename
+    wslc: "❌无（wslc 无 rename）"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 rename
+  - id: 24
+    resource: 容器
+    method: POST
+    path: /containers/{id}/pause
+    wslc: "❌无（wslc 无 pause）"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 pause
+  - id: 25
+    resource: 容器
+    method: POST
+    path: /containers/{id}/unpause
+    wslc: "❌无（wslc 无 unpause）"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 unpause
+  - id: 26
+    resource: 容器
+    method: POST
+    path: /containers/{id}/wait
+    wslc: "❌无（wslc 无 wait）"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 wait
+  - id: 27
+    resource: 容器
+    method: DELETE
+    path: /containers/{id}
+    wslc: wslc container rm
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: -f
+  - id: 28
+    resource: 容器
+    method: POST
+    path: /containers/{id}/attach
+    wslc: wslc attach
+    panel: 否
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: 面板走 websocket
+  - id: 29
+    resource: 容器
+    method: GET
+    path: /containers/{id}/attach/ws
+    wslc: wslc attach
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: 面板控制台
+  - id: 30
+    resource: 容器
+    method: POST
+    path: /containers/{id}/exec
+    wslc: wslc exec
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: 终端入口
+  - id: 31
+    resource: 容器
+    method: GET
+    path: /containers/{id}/archive
+    wslc: wslc container cp
+    panel: 详情
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: tar
+  - id: 32
+    resource: 容器
+    method: HEAD
+    path: /containers/{id}/archive
+    wslc: wslc container cp
+    panel: 否
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: 返回 Path-Stat 头
+  - id: 33
+    resource: 容器
+    method: PUT
+    path: /containers/{id}/archive
+    wslc: wslc container cp（上传）
+    panel: 详情
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: tar 提取
+  - id: 34
+    resource: 容器
+    method: POST
+    path: /containers/prune
+    wslc: wslc container prune
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: ""
+  - id: 35
+    resource: Exec
+    method: POST
+    path: /exec/{id}/start
+    wslc: wslc exec
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: 终端
+  - id: 36
+    resource: Exec
+    method: POST
+    path: /exec/{id}/resize
+    wslc: wslc exec resize
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: 终端
+  - id: 37
+    resource: Exec
+    method: GET
+    path: /exec/{id}/json
+    wslc: wslc exec
+    panel: 详情
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: ""
+  - id: 38
+    resource: 镜像
+    method: GET
+    path: /images/json
+    wslc: wslc image list --format json
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: ""
+  - id: 39
+    resource: 镜像
+    method: POST
+    path: /images/create
+    wslc: wslc pull
+    panel: 核心
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1
+    enabled: true
+    note: pull
+  - id: 40
+    resource: 镜像
+    method: GET
+    path: /images/{id}/json
+    wslc: wslc inspect -t image
+    panel: 详情
+    bridge: 翻译+重塑
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: 按 Moby 结构体重塑
+  - id: 41
+    resource: 镜像
+    method: GET
+    path: /images/{id}/history
+    wslc: "❌无（wslc 无 history）"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 history
+  - id: 42
+    resource: 镜像
+    method: POST
+    path: /images/{id}/tag
+    wslc: wslc tag
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: ""
+  - id: 43
+    resource: 镜像
+    method: DELETE
+    path: /images/{id}
+    wslc: wslc image remove
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: rmi 按钮
+  - id: 44
+    resource: 镜像
+    method: GET
+    path: /images/{id}/get
+    wslc: wslc image export
+    panel: 否
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: tar
+  - id: 45
+    resource: 镜像
+    method: POST
+    path: /images/{id}/push
+    wslc: wslc push
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: 流
+  - id: 46
+    resource: 镜像
+    method: POST
+    path: /images/load
+    wslc: wslc image load
+    panel: 否
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: ""
+  - id: 47
+    resource: 镜像
+    method: GET
+    path: /images/get
+    wslc: wslc image export
+    panel: 否
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: tar
+  - id: 48
+    resource: 镜像
+    method: GET
+    path: /images/search
+    wslc: "❌无（wslc 无 search）"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: 面板搜索降级/禁用
+  - id: 49
+    resource: 镜像
+    method: GET
+    path: /images/{id}/attestation
+    wslc: "❌无"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: 1.56 新增，wslc 无
+  - id: 50
+    resource: 镜像
+    method: DELETE
+    path: /images/prune
+    wslc: wslc image prune
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: ""
+  - id: 51
+    resource: 镜像
+    method: POST
+    path: /build
+    wslc: wslc build -t
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: 上下文流落盘后 wslc build
+  - id: 52
+    resource: 镜像
+    method: POST
+    path: /build/prune
+    wslc: "❌无"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 buildkit 缓存清理
+  - id: 53
+    resource: 镜像
+    method: GET
+    path: /build/cache
+    wslc: "❌无"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 buildkit
+  - id: 54
+    resource: 网络
+    method: GET
+    path: /networks
+    wslc: wslc network list
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: ""
+  - id: 55
+    resource: 网络
+    method: POST
+    path: /networks/create
+    wslc: wslc network create
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: wslc 拒绝 --network host；降级 bridge
+  - id: 56
+    resource: 网络
+    method: GET
+    path: /networks/{id}
+    wslc: wslc inspect -t network
+    panel: 详情
+    bridge: 翻译+重塑
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: 按 Moby 结构体重塑
+  - id: 57
+    resource: 网络
+    method: DELETE
+    path: /networks/{id}
+    wslc: wslc network rm
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: ""
+  - id: 58
+    resource: 网络
+    method: POST
+    path: /networks/{id}/connect
+    wslc: wslc network connect
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: ""
+  - id: 59
+    resource: 网络
+    method: POST
+    path: /networks/{id}/disconnect
+    wslc: wslc network disconnect
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: ""
+  - id: 60
+    resource: 网络
+    method: DELETE
+    path: /networks/prune
+    wslc: wslc network prune
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: ""
+  - id: 61
+    resource: 卷
+    method: GET
+    path: /volumes
+    wslc: wslc volume list
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P3
+    enabled: false
+    note: ""
+  - id: 62
+    resource: 卷
+    method: POST
+    path: /volumes/create
+    wslc: wslc volume create
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: bind 卷经 VirtioFS
+  - id: 63
+    resource: 卷
+    method: GET
+    path: /volumes/{name}
+    wslc: wslc inspect -t volume
+    panel: 详情
+    bridge: 翻译+重塑
+    ms_plan: wslc已可对接
+    plan: P1.5
+    enabled: true
+    note: 按 Moby 结构体重塑
+  - id: 64
+    resource: 卷
+    method: PUT
+    path: /volumes/{name}
+    wslc: "❌无"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: Swarm-only 卷更新
+  - id: 65
+    resource: 卷
+    method: DELETE
+    path: /volumes/{name}
+    wslc: wslc volume rm
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: wslc volume rm
+  - id: 66
+    resource: 卷
+    method: DELETE
+    path: /volumes/prune
+    wslc: wslc volume prune
+    panel: 常用
+    bridge: direct
+    ms_plan: wslc已可对接
+    plan: P2
+    enabled: false
+    note: ""
+  - id: 67
+    resource: 分发/会话
+    method: GET
+    path: /distribution/{name}/json
+    wslc: "❌无"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无 registry 信息接口
+  - id: 68
+    resource: 分发/会话
+    method: POST
+    path: /session
+    wslc: "❌无"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: exec/stdin 多路复用握手
+  - id: 69
+    resource: 编排
+    method: POST
+    path: /compose/{stack}/up
+    wslc: "❌无运行时（wsl compose up 待 MS）"
+    panel: 常用
+    bridge: 转发/翻译
+    ms_plan: Microsoft开发中
+    plan: P4
+    enabled: false
+    note: 官方头号需求 #40948，确认在开发、无日期
+  - id: 70
+    resource: 编排
+    method: GET
+    path: /swarm
+    wslc: "❌无"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: 官方明确超出范围，建议用 k8s
+  - id: 71
+    resource: 编排
+    method: GET
+    path: /apis
+    wslc: "❌无"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: Kubernetes API，引擎缺口
+  - id: 72
+    resource: 插件
+    method: GET
+    path: /plugins
+    wslc: "❌无"
+    panel: 否
+    bridge: 不伪造
+    ms_plan: Microsoft未计划
+    plan: 不实现
+    enabled: false
+    note: wslc 无插件机制

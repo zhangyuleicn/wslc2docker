@@ -1,0 +1,44 @@
+name: release
+
+# 打 tag v* 时构建 linux/amd64 静态二进制，并打包 tarball 上传到 GitHub Release。
+# install.sh / install.ps1 默认下载此 tarball：
+#   wslc2docker-v<version>-linux-amd64.tar.gz  (含 wslc2docker, endpoints.yaml, wslc2docker.service)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build linux/amd64
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags "-X main.buildVersion=$VERSION" \
+            -o wslc2docker ./cmd/wslc2docker
+
+      - name: Package tarball
+        run: |
+          tar -czf "wslc2docker-v${VERSION}-linux-amd64.tar.gz" \
+            wslc2docker endpoints.yaml wslc2docker.service install.sh
+          ls -lh "wslc2docker-v${VERSION}-linux-amd64.tar.gz"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: wslc2docker-v${{ env.VERSION }}-linux-amd64.tar.gz
+          generate_release_notes: true
