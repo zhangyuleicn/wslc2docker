@@ -22,13 +22,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+          cache: true
 
       - name: Build linux/amd64
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          go version
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-            go build -ldflags "-X main.buildVersion=$VERSION" \
+            go build -mod=vendor -ldflags "-X main.buildVersion=$VERSION" \
             -o wslc2docker ./cmd/wslc2docker
 
       - name: Package tarball
