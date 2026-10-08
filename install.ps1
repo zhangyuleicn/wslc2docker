@@ -10,7 +10,7 @@
   目标 WSL 发行版名（如 Ubuntu）。默认取当前正在运行的发行版；若无则取默认发行版。
 
 .PARAMETER Repo
-  GitHub 仓库 owner/name。默认 wslc2docker/wslc2docker（按需修改）。
+  GitHub 仓库 owner/name。默认 zhangyuleicn/wslc2docker（已发布）。
 
 .PARAMETER Version
   版本号，对应 Release tag v<Version>。默认 0.1.0。
@@ -26,7 +26,7 @@
 #>
 param(
   [string]$Distro = "",
-  [string]$Repo = "wslc2docker/wslc2docker",
+  [string]$Repo = "zhangyuleicn/wslc2docker",
   [string]$Version = "0.1.0",
   [string]$LocalDir = ""
 )

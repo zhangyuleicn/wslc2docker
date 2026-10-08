@@ -17,7 +17,7 @@
 set -euo pipefail
 
 # ---- 可配置项 ----
-REPO="${WSLC2DOCKER_REPO:-wslc2docker/wslc2docker}"   # TODO: 改成你的 GitHub 仓库
+REPO="${WSLC2DOCKER_REPO:-zhangyuleicn/wslc2docker}"   # GitHub owner/name
 VERSION="${WSLC2DOCKER_VERSION:-0.1.0}"
 LOCAL_TARBALL="${WSLC2DOCKER_LOCAL_TARBALL:-}"
 LOCAL_DIR="${WSLC2DOCKER_LOCAL_DIR:-}"
