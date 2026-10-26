@@ -13,7 +13,7 @@ set -euo pipefail
 
 REPO="${WSLC2DOCKER_REPO:-zhangyuleicn/wslc2docker}"
 # API 限流 / 无 Release 时的兜底版本（随新版本发布时同步更新）
-FALLBACK_VERSION="v0.1.1"
+FALLBACK_VERSION="v0.1.2"
 
 # ---- 下载工具 ----
 have_curl=0; have_wget=0

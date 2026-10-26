@@ -24,7 +24,7 @@ set -euo pipefail
 
 # ---- 可配置项 ----
 REPO="${WSLC2DOCKER_REPO:-zhangyuleicn/wslc2docker}"
-VERSION="${WSLC2DOCKER_VERSION:-0.1.1}"
+VERSION="${WSLC2DOCKER_VERSION:-0.1.2}"
 LOCAL_TARBALL="${WSLC2DOCKER_LOCAL_TARBALL:-}"
 LOCAL_DIR="${WSLC2DOCKER_LOCAL_DIR:-}"
 FORCE_ROOT="${WSLC2DOCKER_ROOT:-0}"
@@ -151,6 +151,11 @@ echo "==> 部署二进制与配置"
 mkdir -p "$BIN_DIR" "$(dirname "$CFG")" "$(dirname "$LOG")" "$(dirname "$SVC")"
 install -m 0755 "$TMP/wslc2docker" "$BIN"
 install -m 0600 "$TMP/endpoints.yaml" "$CFG"
+# 安装卸载器副本，方便日后卸载（wslc2docker-uninstall 或 bash uninstall.sh）
+if [ -f "$TMP/uninstall.sh" ]; then
+  install -m 0755 "$TMP/uninstall.sh" "$BIN_DIR/wslc2docker-uninstall"
+  echo "    卸载器: $BIN_DIR/wslc2docker-uninstall"
+fi
 
 # 生成 systemd 单元（用实际路径，避免硬编码 /usr/local、/etc）
 {
@@ -226,10 +231,11 @@ EOF
     chmod 644 "$HOOK"
     echo "    已写入 $HOOK（新登录会话自动拉起）"
   else
-    grep -q "wslc2docker" "$HOOK" 2>/dev/null || cat >> "$HOOK" <<EOF
+    grep -q "wslc2docker autostart" "$HOOK" 2>/dev/null || cat >> "$HOOK" <<EOF
 
-# wslc2docker 自动拉起
+# >>> wslc2docker autostart >>>
 pgrep -f "$BIN" >/dev/null || setsid "$BIN" --socket "$SOCK" --config "$CFG" >"$LOG" 2>&1 &
+# <<< wslc2docker autostart <<<
 EOF
     echo "    已写入 $HOOK（新登录会话自动拉起）"
     echo "    提示：将 $BIN_DIR 加入 PATH（如写入 ~/.bashrc：export PATH=\"$BIN_DIR:\$PATH\"）"

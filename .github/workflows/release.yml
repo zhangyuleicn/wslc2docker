@@ -36,7 +36,7 @@ jobs:
       - name: Package tarball
         run: |
           tar -czf "wslc2docker-v${VERSION}-linux-amd64.tar.gz" \
-            wslc2docker endpoints.yaml wslc2docker.service install.sh quick_start.sh
+            wslc2docker endpoints.yaml wslc2docker.service install.sh quick_start.sh uninstall.sh
           ls -lh "wslc2docker-v${VERSION}-linux-amd64.tar.gz"
 
       - name: Upload to Release

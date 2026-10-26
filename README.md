@@ -23,24 +23,28 @@
 # 进入 WSL（Windows 终端直接敲 wsl，或打开你的发行版）
 wsl
 
-# 一行搞定：下载 quick_start.sh 并自动安装（默认用户级，无需 sudo / root）
+# 推荐（接 1Panel / Portainer）：加 sudo 走系统级，socket 落在标准位置 /var/run/docker.sock
+sudo bash -c "$(curl -sSL https://raw.githubusercontent.com/zhangyuleicn/wslc2docker/main/quick_start.sh)"
+
+# 备选（无 sudo / 不想用 root）：不加 sudo，走用户级，socket 在 $XDG_RUNTIME_DIR
 bash -c "$(curl -sSL https://raw.githubusercontent.com/zhangyuleicn/wslc2docker/main/quick_start.sh)"
 ```
 
-**无需 root / sudo**：普通用户直接运行就会走「用户模式」——装到 `~/.local/bin` + `~/.config/wslc2docker`，socket 在 `$XDG_RUNTIME_DIR/wslc2docker.sock`。只有当你显式想要系统级安装（`sudo` 运行，或设 `WSLC2DOCKER_ROOT=1`）时才会用到 root。
+**两种模式，自动判定**（无需手动选）：
+- **root 模式**（用 `sudo` 运行，或设 `WSLC2DOCKER_ROOT=1`）：二进制 `/usr/local/bin/wslc2docker`、配置 `/etc/wslc2docker/endpoints.yaml`(0600)、socket `/var/run/docker.sock`、systemd 系统服务。
+- **用户模式**（普通用户直接运行，无需 sudo）：二进制 `~/.local/bin/wslc2docker`、配置 `~/.config/wslc2docker/endpoints.yaml`、socket `$XDG_RUNTIME_DIR/wslc2docker.sock`、systemd --user 或登录钩子。
 
-脚本会：查询 GitHub 最新 Release → 下载 `wslc2docker-v<版本>-linux-amd64.tar.gz` → 解包 → 拉取仓库最新 `install.sh` → 运行安装。安装过程自动完成：部署二进制、写配置（0600）、安装 systemd 单元（系统级或 `--user`）并启用启动；若 WSL 未开 systemd 则降级为后台运行 + 登录钩子。
+> **该用哪种？** 要接 **1Panel / Portainer** 这类以 root 运行、默认连 `/var/run/docker.sock` 的面板，**建议用 root 模式**——socket 正好在标准位置且 root 有权访问，开箱即用，无需改面板配置。用户模式把 socket 放到非标准位置，面板不会自动发现，还得手动改端点 + 处理跨用户权限，适合「没有 sudo 或不愿用 root」的场景，不适合接 1Panel。
 
-- **用户模式**（默认，普通用户）：二进制 `~/.local/bin/wslc2docker`、配置 `~/.config/wslc2docker/endpoints.yaml`、socket `$XDG_RUNTIME_DIR/wslc2docker.sock`、面板接 `unix://$XDG_RUNTIME_DIR/wslc2docker.sock`。
-- **root 模式**（`sudo bash install.sh` 或 `WSLC2DOCKER_ROOT=1`）：二进制 `/usr/local/bin/wslc2docker`、配置 `/etc/wslc2docker/endpoints.yaml`、socket `/var/run/docker.sock`。
+脚本会：查询 GitHub 最新 Release → 下载 `wslc2docker-v<版本>-linux-amd64.tar.gz` → 解包 → 拉取仓库最新 `install.sh` → 运行安装。安装过程自动完成：部署二进制、写配置（0600）、安装 systemd 单元（系统级或 `--user`）并启用启动；若 WSL 未开 systemd 则降级为后台运行 + 登录钩子。脚本还会探测 Windows PATH 并注入 systemd 单元（否则 systemd 服务找不到 `wslc.exe`）。
 
 **可覆盖的环境变量**（需要时加在命令前）：
-- `WSLC2DOCKER_VERSION=v0.1.1` —— 装指定版本（默认取最新 Release）
+- `WSLC2DOCKER_VERSION=v0.1.2` —— 装指定版本（默认取最新 Release）
 - `WSLC2DOCKER_REPO=owner/name` —— 装其他 fork
 
-**备选 — 本地仓库直接装（零下载）**：如果你已经把仓库 clone / 拷到了 WSL 里，直接 `bash install.sh` 即可（用户模式，无需 sudo），`install.sh` 会默认使用**自己所在目录**里的 `wslc2docker` / `endpoints.yaml`，无需联网。想要系统级就加 `sudo bash install.sh`。
+**备选 — 本地仓库直接装（零下载）**：仓库已 clone / 拷到 WSL 里时，直接 `sudo bash install.sh`（系统级）或 `bash install.sh`（用户级）即可，`install.sh` 会默认使用**自己所在目录**里的 `wslc2docker` / `endpoints.yaml`，无需联网。
 
-> **发布预编译包**（让一行安装命令可用）：给仓库打 `v*` tag 推送即触发 `.github/workflows/release.yml`，自动构建 linux/amd64 并上传 `wslc2docker-v<version>-linux-amd64.tar.gz`（含二进制 + endpoints.yaml + service + install.sh + quick_start.sh）。
+> **发布预编译包**（让一行安装命令可用）：给仓库打 `v*` tag 推送即触发 `.github/workflows/release.yml`，自动构建 linux/amd64 并上传 `wslc2docker-v<version>-linux-amd64.tar.gz`（含二进制 + endpoints.yaml + service + install.sh + quick_start.sh + uninstall.sh）。
 
 ### 0.1 前提条件
 
@@ -49,7 +53,7 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/zhangyuleicn/wslc2docker/
 | Windows | Windows 11 / Windows Server 2025，已启用 **WSL2**（`wsl --install` 或已就绪） |
 | WSLC | 微软原生容器引擎 `wslc.exe` 可用（GA 版 3.0.1）。在 **WSL Linux shell** 验证：`wslc --version` 或 `wslc.exe --version`（经 WSL interop 调用 `.exe`） |
 | 构建机 | 仅**编译**需要 Go 1.22+；目标运行机是 WSL 内的 Linux（amd64） |
-| 权限 | **默认无需 root**：用户模式装到 `~/.local`，socket 在 `$XDG_RUNTIME_DIR`，普通用户即可。仅系统级安装（写到 `/usr/local`、`/etc`、`/var/run`）才需要 `sudo` |
+| 权限 | **接 1Panel / Portainer 建议用 root 模式**（`sudo` 运行）：socket 落在标准位置 `/var/run/docker.sock`，面板开箱即用。无 sudo 时用用户模式（socket 在 `$XDG_RUNTIME_DIR`）。 |
 
 > 若 `wslc --version` 在 WSL 内返回「command not found」：WSLC 的 `wslc.exe` 通常已在 Windows PATH，但 WSL interop 需确保 `/mnt/c/...` 在 PATH 且未禁用。可在 WSL 内试 `wslc.exe --version`（带 `.exe` 后缀）确认 interop 正常。
 
@@ -121,8 +125,9 @@ docker stop web && docker rm web
 
 ### 0.7 接入管理面板
 
-- **1Panel**：进入「容器」设置，把 Docker 连接地址填为 `unix:///var/run/docker.sock`（与本机 dockerd 填法完全一致）。1Panel 不再需要单独装 docker-ce。
-- **Portainer**：新建 Environment 选 Docker，Endpoint URL 填 `unix:///var/run/docker.sock`。
+- **1Panel**：进入「容器」设置，把 Docker 连接地址填为 `unix:///var/run/docker.sock`（**root 模式**，与本机 dockerd 填法完全一致）。1Panel 不再需要单独装 docker-ce。
+  - *用户模式*（socket 在 `$XDG_RUNTIME_DIR/wslc2docker.sock`）：把地址改为 `unix://$XDG_RUNTIME_DIR/wslc2docker.sock`，并确保 1Panel 运行用户能访问该 socket（最简单是让 1Panel 以 root 运行）。
+- **Portainer**：新建 Environment 选 Docker，Endpoint URL 填 `unix:///var/run/docker.sock`（root 模式）；用户模式同理用 `$XDG_RUNTIME_DIR` 下的 socket。
 - 仅本机调试可用 TCP：先改 YAML 加 `--tcp 127.0.0.1:2375` 重启，面板填 `tcp://127.0.0.1:2375`（**切勿**绑 `0.0.0.0`）。
 
 ### 0.8 改配置后的热加载（不重启）
@@ -138,18 +143,35 @@ sudo systemctl reload wslc2docker     # 发 SIGHUP，即时生效，不中断面
 |---|---|
 | `docker ps` 报 `permission denied` | 当前用户不在 docker 组，或 socket 权限不对；用 `sudo docker ps` 验证，或把用户加入 `docker` 组 |
 | `Is the docker daemon running?` | 进程没起：`systemctl status wslc2docker`；看日志 `journalctl -u wslc2docker -n 50` |
-| `wslc: command not found`（后端为 wslc） | WSL interop 未打通；在 WSL 内试 `wslc.exe --version`，确认 PATH 含 Windows 目录 |
+| 后端报 `exec: "wslc.exe": not found in $PATH` | systemd 服务默认不含 Windows PATH；**v0.1.2 起 install.sh 已自动注入**。若仍报，先确认 WSL interop 正常（`wslc.exe --version` 在交互 shell 能跑），再 `sudo wslc2docker-uninstall -y` 后重装 |
 | 面板连上但按钮灰（501） | 该端点属 P2/P3/P4 或「不实现」阶段，`endpoints.yaml` 中 `enabled: false`，属设计内兼容边界（见 §11） |
 | TCP 连不上 | 确认 `--tcp 127.0.0.1:2375` 已加且 `reload/restart`；防火墙仅放行本机回环 |
 
 ### 0.10 卸载
 
+最简单：用安装时附带的卸载器（安装后会放到 `BIN_DIR`，例如 `/usr/local/bin/wslc2docker-uninstall` 或 `~/.local/bin/wslc2docker-uninstall`）：
+
 ```bash
-sudo systemctl disable --now wslc2docker
-sudo rm -f /usr/local/bin/wslc2docker /etc/systemd/system/wslc2docker.service
-sudo rm -rf /etc/wslc2docker /var/run/docker.sock
-sudo systemctl daemon-reload
+sudo wslc2docker-uninstall -y        # 系统级建议加 sudo，清理最干净
 ```
+
+或直接从仓库拉取卸载脚本运行：
+
+```bash
+sudo bash -c "$(curl -sSL https://raw.githubusercontent.com/zhangyuleicn/wslc2docker/main/uninstall.sh)" -y
+```
+
+卸载脚本会同时清理「系统级」与「用户级」两种可能的残留（服务、二进制、配置、socket、日志、自启钩子），缺哪个都不报错。加 `-y` 跳过确认。
+
+> 手动等价操作（如无网络）：
+> ```bash
+> sudo systemctl disable --now wslc2docker
+> sudo rm -f /usr/local/bin/wslc2docker /usr/local/bin/wslc2docker-uninstall \
+>           /etc/systemd/system/wslc2docker.service /var/run/docker.sock \
+>           /var/log/wslc2docker.log /etc/profile.d/wslc2docker.sh
+> sudo rm -rf /etc/wslc2docker /etc/systemd/system/wslc2docker.service.d
+> sudo systemctl daemon-reload
+> ```
 
 ---
 
@@ -293,7 +315,7 @@ Portainer / 1Panel 连 `unix:///var/run/docker.sock` 即可管理 WSLC 容器。
 
 ---
 
-## 11. 当前实现状态（v0.1.0）
+## 11. 当前实现状态（v0.1.2）
 
 按 `design.md` 的阶段推进，已实现 **P0 + P1 + P1.5**（面板连通与核心功能所需的端点）：
 
