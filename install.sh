@@ -82,6 +82,34 @@ if [ "$(uname -m)" != "x86_64" ]; then
   exit 1
 fi
 
+# ---- 取得 Windows PATH（WSL interop 需要，但 systemd 服务默认不带）----
+# wslc.exe 这类 Windows 程序只在交互式 shell 的 PATH 里；systemd 服务进程
+# 没有 Windows 目录，会导致后端 exec "wslc.exe": not found。这里通过 powershell.exe
+# 的绝对路径（binfmt 可直接执行，无需它在 PATH 中）取到 Windows PATH，转成 WSL
+# 路径，稍后写进 systemd 单元的 Environment。取不到则留空（不影响非后端路径）。
+detect_windows_path() {
+  local p out
+  for p in \
+    "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe" \
+    "/mnt/c/Windows/System32/powershell.exe" \
+    "/mnt/c/Windows/powershell.exe"; do
+    if [ -x "$p" ]; then
+      out="$("$p" -NoProfile -Command '$env:PATH' 2>/dev/null \
+        | tr ';' ':' \
+        | sed -E 's#([A-Za-z]):#/mnt/\L\1#g; s#\\#/#g')"
+      if [ -n "$out" ]; then
+        echo "$out"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+WIN_PATH="$(detect_windows_path || true)"
+if [ -n "$WIN_PATH" ]; then
+  echo "==> 探测到 Windows PATH（用于 systemd 单元注入）"
+fi
+
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -137,6 +165,11 @@ install -m 0600 "$TMP/endpoints.yaml" "$CFG"
   echo "ExecReload=/bin/kill -HUP \$MAINPID"
   echo "Restart=on-failure"
   echo "RestartSec=2"
+  # 把 Windows PATH 注入服务环境，否则 systemd 服务找不到 wslc.exe（WSL interop）
+  BASE_PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  if [ -n "$WIN_PATH" ]; then
+    echo "Environment=\"PATH=$BASE_PATH:$WIN_PATH\""
+  fi
   if [ -n "$SVC_USER" ]; then
     echo "User=$SVC_USER"
     echo "AmbientCapabilities=CAP_NET_BIND_SERVICE"
