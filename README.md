@@ -23,26 +23,22 @@
 # 进入 WSL（Windows 终端直接敲 wsl，或打开你的发行版）
 wsl
 
-# 一行搞定：下载 quick_start.sh 并自动安装（脚本内部会按需 sudo 提权）
+# 一行搞定：下载 quick_start.sh 并自动安装（默认用户级，无需 sudo / root）
 bash -c "$(curl -sSL https://raw.githubusercontent.com/zhangyuleicn/wslc2docker/main/quick_start.sh)"
 ```
 
-> 从 Windows 侧一键拉起 WSL 执行（PowerShell / cmd 里）：
-> ```powershell
-> wsl -e bash -c "bash -c \"\$(curl -sSL https://raw.githubusercontent.com/zhangyuleicn/wslc2docker/main/quick_start.sh)\""
-> ```
-> 注意外层必须用 `wsl -e bash -c "..."` 包一层，避免 PowerShell 抢先展开 `$(...)`。
+**无需 root / sudo**：普通用户直接运行就会走「用户模式」——装到 `~/.local/bin` + `~/.config/wslc2docker`，socket 在 `$XDG_RUNTIME_DIR/wslc2docker.sock`。只有当你显式想要系统级安装（`sudo` 运行，或设 `WSLC2DOCKER_ROOT=1`）时才会用到 root。
 
-脚本会：查询 GitHub 最新 Release → 下载 `wslc2docker-v<版本>-linux-amd64.tar.gz` → 解包 → 拉取仓库最新 `install.sh` → 提权运行安装。安装过程自动完成：部署二进制到 `/usr/local/bin`、写 `/etc/wslc2docker`（0600）、安装 systemd 单元并启用启动；若 WSL 未开 systemd 则降级为 nohup 后台 + 登录钩子，并提示如何开启 systemd。
+脚本会：查询 GitHub 最新 Release → 下载 `wslc2docker-v<版本>-linux-amd64.tar.gz` → 解包 → 拉取仓库最新 `install.sh` → 运行安装。安装过程自动完成：部署二进制、写配置（0600）、安装 systemd 单元（系统级或 `--user`）并启用启动；若 WSL 未开 systemd 则降级为后台运行 + 登录钩子。
+
+- **用户模式**（默认，普通用户）：二进制 `~/.local/bin/wslc2docker`、配置 `~/.config/wslc2docker/endpoints.yaml`、socket `$XDG_RUNTIME_DIR/wslc2docker.sock`、面板接 `unix://$XDG_RUNTIME_DIR/wslc2docker.sock`。
+- **root 模式**（`sudo bash install.sh` 或 `WSLC2DOCKER_ROOT=1`）：二进制 `/usr/local/bin/wslc2docker`、配置 `/etc/wslc2docker/endpoints.yaml`、socket `/var/run/docker.sock`。
 
 **可覆盖的环境变量**（需要时加在命令前）：
 - `WSLC2DOCKER_VERSION=v0.1.1` —— 装指定版本（默认取最新 Release）
 - `WSLC2DOCKER_REPO=owner/name` —— 装其他 fork
 
-**备选 — 本地仓库直接装（零下载）**：如果你已经把仓库 clone / 拷到了 WSL 里，直接 `sudo bash install.sh` 即可，`install.sh` 会默认使用**自己所在目录**里的 `wslc2docker` / `endpoints.yaml` / `wslc2docker.service`，无需联网。
-
-**可选 — Windows 侧 `install.ps1`**：PowerShell 里 `.\install.ps1 -LocalDir .` 也能自动进 WSL 安装。
-> 注意：在中文版 Windows 上 PowerShell 对 `.ps1` 的编码/执行策略较敏感（需 `-ExecutionPolicy Bypass`，发行版名解析偶发乱码），**不如上面的 WSL 一行命令省心**，故推荐优先用上面的方式。
+**备选 — 本地仓库直接装（零下载）**：如果你已经把仓库 clone / 拷到了 WSL 里，直接 `bash install.sh` 即可（用户模式，无需 sudo），`install.sh` 会默认使用**自己所在目录**里的 `wslc2docker` / `endpoints.yaml`，无需联网。想要系统级就加 `sudo bash install.sh`。
 
 > **发布预编译包**（让一行安装命令可用）：给仓库打 `v*` tag 推送即触发 `.github/workflows/release.yml`，自动构建 linux/amd64 并上传 `wslc2docker-v<version>-linux-amd64.tar.gz`（含二进制 + endpoints.yaml + service + install.sh + quick_start.sh）。
 
@@ -51,9 +47,9 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/zhangyuleicn/wslc2docker/
 | 项 | 说明 |
 |---|---|
 | Windows | Windows 11 / Windows Server 2025，已启用 **WSL2**（`wsl --install` 或已就绪） |
-| WSLC | 微软原生容器引擎 `wslc.exe` 可用（GA 版 3.0.1）。在 **PowerShell** 验证：`wslc --version`；在 **WSL Linux shell** 验证：`wslc --version`（经 WSL interop 调用 `.exe`） |
+| WSLC | 微软原生容器引擎 `wslc.exe` 可用（GA 版 3.0.1）。在 **WSL Linux shell** 验证：`wslc --version` 或 `wslc.exe --version`（经 WSL interop 调用 `.exe`） |
 | 构建机 | 仅**编译**需要 Go 1.22+；目标运行机是 WSL 内的 Linux（amd64） |
-| 权限 | 守护进程监听 `/var/run/docker.sock` 需 **root**（与真实 dockerd 一致） |
+| 权限 | **默认无需 root**：用户模式装到 `~/.local`，socket 在 `$XDG_RUNTIME_DIR`，普通用户即可。仅系统级安装（写到 `/usr/local`、`/etc`、`/var/run`）才需要 `sudo` |
 
 > 若 `wslc --version` 在 WSL 内返回「command not found」：WSLC 的 `wslc.exe` 通常已在 Windows PATH，但 WSL interop 需确保 `/mnt/c/...` 在 PATH 且未禁用。可在 WSL 内试 `wslc.exe --version`（带 `.exe` 后缀）确认 interop 正常。
 

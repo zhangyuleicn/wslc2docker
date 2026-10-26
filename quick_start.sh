@@ -71,10 +71,15 @@ if [ ! -f "$TMP/install.sh" ]; then
   exit 1
 fi
 
-# ---- 提权运行安装（install.sh 会自动用同目录的二进制/配置，无需再次联网）----
+# ---- 运行安装 ----
+# 默认：root 直接装系统级；普通用户装用户级（无需 sudo）。
+# 设 WSLC2DOCKER_ROOT=1 且非 root 时，才提权做系统级安装。
 if [ "$(id -u)" -eq 0 ]; then
   bash "$TMP/install.sh"
-else
-  echo "==> 需要 root 权限完成安装，正在提权（输入 sudo 密码）"
+elif [ "${WSLC2DOCKER_ROOT:-0}" = "1" ]; then
+  echo "==> 系统级安装需要 root 权限，正在提权（输入 sudo 密码）"
   sudo bash "$TMP/install.sh"
+else
+  echo "==> 以当前用户安装（无需 root / sudo）"
+  bash "$TMP/install.sh"
 fi
